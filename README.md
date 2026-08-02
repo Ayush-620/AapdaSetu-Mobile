@@ -1,139 +1,232 @@
-# 🚨 Disaster Alert & Safety Network App
+# 🌍 AapdaSetu – AI-Powered Disaster Response Platform
 
-A real-time disaster alert and safety network mobile application built using **Flutter + Supabase + AI (Gemini)**.
+> Intelligent disaster preparedness, emergency reporting, and real-time citizen assistance powered by AI.
 
-This app helps users:
+<p align="center">
 
-* Report incidents (fire, medical, flood, etc.)
-* Receive real-time alerts
-* Track nearby disasters
-* Stay connected with a safety network
-* Get AI-powered safety guidance
+![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?logo=supabase&logoColor=white)
+![Android](https://img.shields.io/badge/Platform-Android-success)
+![AI](https://img.shields.io/badge/AI-Gemini-blueviolet)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+</p>
 
 ---
 
-# 📱 Features
+# 📱 Overview
 
-## 🚨 Incident Reporting
+**AapdaSetu** is an AI-powered disaster response mobile application designed to help citizens stay informed, report emergencies, and receive real-time safety guidance during disasters.
 
-* Multiple categories (Fire, Medical, Accident, etc.)
-* Upload image evidence
-* Voice recording support
-* Offline report sync
+The application integrates **location-aware emergency alerts**, an **AI disaster assistant**, **multimedia incident reporting**, **live weather & AQI**, and an **offline-first architecture** to improve disaster preparedness and response.
 
-## 📡 Real-Time Alerts
+---
 
-* Live alerts from backend
-* Severity-based UI (Critical / Major / Minor)
-* Tap alerts to view full details
+# ✨ Key Highlights
 
-## 🌍 Location-Based System
+- 🚨 Real-time location-based disaster alerts
+- 🤖 AI-powered disaster guidance
+- 📍 Automatic location detection
+- 🌤 Live Weather & Air Quality Index (AQI)
+- 📸 Image & Audio incident reporting
+- 🎤 Voice-to-Text assisted reporting
+- 👥 Safety Network for trusted contacts
+- 📦 Offline-first architecture using Hive
+- 🔐 Secure authentication using Supabase
 
-* Auto-detect user location
-* Weather + AQI preview
-* Location stored in Supabase profile
+---
 
-## 👥 Safety Network
+# 🚀 Features
 
-* Connect with trusted users
-* View linked middlemen and citizens
-* Real-time safety relationships
+## 🚨 Smart Emergency Alerts
+
+- Location-aware disaster alerts
+- Severity-based alert cards
+- Detailed safety precautions
+- Pull-to-refresh support
+
+---
 
 ## 🤖 AI Disaster Assistant
 
-* Built using Gemini API
-* Context-aware responses
-* Uses:
-
-  * User location
-  * Nearby reports
-  * Conversation history
-
-## 💾 Offline Support
-
-* Stores reports locally
-* Syncs when internet is available
+- AI-powered emergency guidance
+- Context-aware conversations
+- Voice input support
+- Conversation history
 
 ---
 
-# 🛠️ Tech Stack
+## 📝 Incident Reporting
 
-```plaintext
-Flutter (Frontend)
-Supabase (Auth + Database + Edge Functions)
-Gemini API (AI chatbot)
-Hive (Local storage)
-Geolocator (Location)
+Users can report disasters with:
+
+- 📸 Images
+- 🎤 Audio recordings
+- 🗣 Voice-to-text description
+- 📍 GPS Location
+- 🏷 Disaster Category
+- 📝 Manual description
+
+---
+
+## 🌤 Weather & Air Quality
+
+- Current weather
+- Temperature
+- Air Quality Index
+- Automatic location updates
+
+---
+
+## 👥 Safety Network
+
+- Trusted middlemen
+- Linked citizens
+- Emergency coordination
+
+---
+
+## 📦 Offline Support
+
+- Hive local storage
+- Automatic synchronization
+- Works during unstable connectivity
+
+---
+
+# 🛠 Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | Flutter |
+| Language | Dart |
+| Backend | Supabase |
+| Database | PostgreSQL |
+| Authentication | Supabase Auth |
+| Storage | Supabase Storage |
+| Local Database | Hive |
+| AI | Gemini AI (Supabase Edge Functions) |
+| Weather | Open-Meteo API |
+| Air Quality | Open-Meteo AQI API |
+| Location | Geolocator |
+| Speech | Speech-to-Text |
+| Audio | Record |
+| Image Upload | Image Picker |
+
+---
+
+# 🏗 System Architecture
+
+```text
+                Citizen
+                   │
+                   ▼
+        Flutter Mobile App
+                   │
+     ┌─────────────┼─────────────┐
+     ▼             ▼             ▼
+ Supabase      Open-Meteo     Device APIs
+ Database        APIs      Camera • GPS • Mic
+     │
+     ▼
+ Supabase Edge Functions
+     │
+     ▼
+ Gemini AI
 ```
+
+---
+
+# 📷 Screenshots
+
+## Authentication
+
+| Login |
+|-------|
+| ![](assets/screenshots/login.jpeg) |
+
+---
+
+## Home Dashboard
+
+| Home |
+|------|
+| ![](assets/screenshots/home.jpeg) |
+
+---
+
+## Emergency Alerts
+
+| Alerts |
+|--------|
+| ![](assets/screenshots/alerts.jpeg) |
+
+---
+
+## AI Disaster Assistant
+
+| AI Chatbot |
+|------------|
+| ![](assets/screenshots/chatbot.jpeg) |
+
+---
+
+## Incident Reporting
+
+| My Reports |
+|------------|
+| ![](assets/screenshots/myreports.jpeg) |
+
+---
+
+## Profile & Safety Network
+
+| Profile |
+|----------|
+| ![](assets/screenshots/profile&middleman.jpeg) |
 
 ---
 
 # 📂 Project Structure
 
-```plaintext
+```
 lib/
+ ├── navigation/
  ├── screens/
  ├── services/
  ├── widgets/
  ├── models/
+ └── main.dart
 
 assets/
-android/
-ios/
-web/
+ ├── images/
+ └── screenshots/
 ```
 
 ---
 
-# ⚙️ Setup Instructions
+# 🚀 Getting Started
 
-## 1. Clone the project
+Clone the repository
 
 ```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
+git clone https://github.com/Ayush-620/AapdaSetu-Mobile.git
 ```
 
----
-
-## 2. Install dependencies
+Install dependencies
 
 ```bash
 flutter pub get
 ```
 
----
-
-## 3. Configure Supabase
-
-Create a `.env` or config file and add:
-
-```plaintext
-SUPABASE_URL=your_url
-SUPABASE_ANON_KEY=your_key
-```
-
----
-
-## 4. Run the app
+Run the application
 
 ```bash
 flutter run
 ```
 
----
-
-# 🔐 Important Notes
-
-```plaintext
-✔ Do NOT upload API keys publicly
-✔ Keep .env private
-✔ Supabase RLS should be configured properly
-```
-
----
-
-# 📦 Build Release
+Build release APK
 
 ```bash
 flutter build apk --release
@@ -141,22 +234,21 @@ flutter build apk --release
 
 ---
 
-# 🚀 Future Improvements
 
-* 🔥 Real-time alert push notifications
-* 🗺️ Live disaster map
-* 🔊 AI voice response
-* 📊 Admin dashboard
-* ⚡ Background location tracking
+# 👨‍💻 Developer
 
----
+**Ayush Kashyap**
 
-# 👨‍💻 Author
+B.Tech Computer Science & Engineering (AI & Data Science)
 
-Kashyap
+IIIT Senapati, Manipur
+
+GitHub: https://github.com/Ayush-620
 
 ---
 
-# ⭐ If you like this project
+# ⭐ Support
 
-Give it a star ⭐ on GitHub
+If you found this project useful,
+
+Please consider giving it a ⭐ on GitHub.
