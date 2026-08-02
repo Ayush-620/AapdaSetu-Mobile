@@ -43,3 +43,28 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+# Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# Android
+.gradle/
+android/.gradle/
+
+# IDE
+.idea/
+.vscode/
+
+# Local configuration
+.codex/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
