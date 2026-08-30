@@ -5,6 +5,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/chat_storage_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
+import '../services/language_scope.dart';
+import '../services/app_localizations.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -26,46 +28,51 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String get userId => AuthService.currentUser?.id ?? "guest";
 
- 
+  @override
+  void initState() {
+    super.initState();
 
-@override
-void initState() {
-  super.initState();
+    _speech = stt.SpeechToText();
 
-  _speech = stt.SpeechToText(); // 🔥 IMPORTANT
+    _loadMessages();
+  }
 
-  _loadMessages();
-}
-    
-void _loadMessages() {
-  try {
-    final history = ChatStorageService.getMessages(userId);
+  // ============================================================
+  // LOAD CHAT HISTORY
+  // ============================================================
 
-    print("LOADED HISTORY: $history");
+  void _loadMessages() {
+    try {
+      final history = ChatStorageService.getMessages(userId);
 
-    setState(() {
-      messages = history
-          .where((e) =>
-              e["role"] != null &&
-              e["text"] != null)
-          .map<Map<String, String>>((e) => {
+      debugPrint("LOADED HISTORY: $history");
+
+      setState(() {
+        messages = history
+            .where((e) => e["role"] != null && e["text"] != null)
+            .map<Map<String, String>>(
+              (e) => {
                 "role": e["role"].toString(),
                 "text": e["text"].toString(),
-              })
-          .toList();
-    });
-  } catch (e) {
-    print("CHAT LOAD ERROR: $e");
+              },
+            )
+            .toList();
+      });
+    } catch (e) {
+      debugPrint("CHAT LOAD ERROR: $e");
 
-    setState(() {
-      messages = [];
-    });
+      setState(() {
+        messages = [];
+      });
+    }
   }
-}
 
+  // ============================================================
   // START LISTENING
-  void _startListening() async {
-    bool available = await _speech.initialize();
+  // ============================================================
+
+  Future<void> _startListening() async {
+    final available = await _speech.initialize();
 
     if (available) {
       setState(() => _isListening = true);
@@ -74,6 +81,9 @@ void _loadMessages() {
         onResult: (result) {
           setState(() {
             _controller.text = result.recognizedWords;
+            _controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: _controller.text.length),
+            );
           });
         },
       );
@@ -82,14 +92,30 @@ void _loadMessages() {
 
   void _stopListening() {
     _speech.stop();
+
     setState(() => _isListening = false);
   }
 
-  // SEND MESSAGE
-  Future<String> sendMessage(String message) async {
+  // ============================================================
+  // SEND MESSAGE TO AI
+  // ============================================================
+
+  Future<String> sendMessage(String message, String language) async {
     try {
+      debugPrint("CHATBOT: sendMessage started");
+      debugPrint("CHATBOT: language = $language");
+
       final history = ChatStorageService.getMessages(userId);
+
+      debugPrint("CHATBOT: history loaded");
+
       final position = await LocationService.getCurrentLocation();
+
+      debugPrint(
+        "CHATBOT: location = ${position?.latitude}, ${position?.longitude}",
+      );
+
+      debugPrint("CHATBOT: invoking Supabase function...");
 
       final res = await Supabase.instance.client.functions.invoke(
         'chatbot',
@@ -99,21 +125,45 @@ void _loadMessages() {
           "lat": position?.latitude,
           "lng": position?.longitude,
           "userId": userId,
+          "language": language,
         },
       );
 
-      return res.data?["reply"] ?? "No reply";
-    } catch (e) {
-      return "AI unavailable. Try again.";
+      debugPrint("CHATBOT: function returned");
+      debugPrint("CHATBOT: status = ${res.status}");
+      debugPrint("CHATBOT: data = ${res.data}");
+
+      final data = res.data;
+
+      return data?["reply"]?.toString() ?? "No reply";
+    } catch (e, stackTrace) {
+      debugPrint("CHATBOT ERROR: $e");
+      debugPrint("CHATBOT STACK: $stackTrace");
+
+      return language == "hi"
+          ? "AI सेवा अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।"
+          : "AI unavailable. Try again.";
     }
   }
 
+  // ============================================================
+  // HANDLE SEND
+  // ============================================================
+
   Future<void> handleSend() async {
+    debugPrint("🔥🔥🔥 HANDLE SEND CALLED 🔥🔥🔥");
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+
+    debugPrint("🔥 MESSAGE: $text");
+
+    debugPrint("CHATBOT TEST: handleSend called");
+    debugPrint("CHATBOT TEST: message = $text");
+
+    if (text.isEmpty || loading) return;
 
     setState(() {
       messages.add({"role": "user", "text": text});
+
       loading = true;
     });
 
@@ -125,7 +175,11 @@ void _loadMessages() {
       text: text,
     );
 
-    final reply = await sendMessage(text);
+    final language = Localizations.localeOf(context).languageCode;
+
+    debugPrint("CHATBOT TEST: calling sendMessage");
+
+    final reply = await sendMessage(text, language);
 
     await ChatStorageService.saveMessage(
       userId: userId,
@@ -133,16 +187,25 @@ void _loadMessages() {
       text: reply,
     );
 
+    if (!mounted) return;
+
     setState(() {
       messages.add({"role": "bot", "text": reply});
+
       loading = false;
     });
 
     _scrollToBottom();
   }
 
+  // ============================================================
+  // SCROLL TO BOTTOM
+  // ============================================================
+
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
+      if (!_scrollController.hasClients) return;
+
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -151,7 +214,10 @@ void _loadMessages() {
     });
   }
 
-  //  MESSAGE UI
+  // ============================================================
+  // MESSAGE UI
+  // ============================================================
+
   Widget buildMessage(Map<String, String> msg) {
     final isUser = msg["role"] == "user";
 
@@ -169,73 +235,89 @@ void _loadMessages() {
             bottomLeft: Radius.circular(isUser ? 16 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 16),
           ),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 4)
-          ],
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
         ),
         child: Text(
           msg["text"]?.replaceAll("**", "") ?? "",
-          style: TextStyle(
-            color: isUser ? Colors.white : Colors.black87,
-          ),
+          style: TextStyle(color: isUser ? Colors.white : Colors.black87),
         ),
       ),
     );
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(title: const Text("AI Disaster Assistant")),
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+      appBar: AppBar(title: Text(l10n.aiDisasterAssistant)),
+
+      // ========================================================
+      // BODY
+      // ========================================================
       body: Column(
         children: [
           Expanded(
-           child: ListView.builder(
-  controller: _scrollController,
-  padding: const EdgeInsets.all(16),
-  itemCount: messages.isEmpty ? 1 : messages.length,
-  itemBuilder: (context, index) {
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: messages.isEmpty ? 1 : messages.length,
+              itemBuilder: (context, index) {
+                // EMPTY STATE
+                if (messages.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 100),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.support_agent,
+                            size: 60,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            l10n.askSafetyAlerts,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-    //  EMPTY STATE (same UI)
-    if (messages.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 100),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.support_agent, size: 60, color: Colors.grey),
-              SizedBox(height: 10),
-              Text(
-                "Ask me about safety & alerts",
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
+                // CHAT MESSAGE
+                return buildMessage(messages[index]);
+              },
+            ),
           ),
-        ),
-      );
-    }
 
-    //  CHAT MESSAGE
-    return buildMessage(messages[index]);
-  },
-),
-          ),
-
+          // ======================================================
+          // LOADING
+          // ======================================================
           if (loading)
             const Padding(
               padding: EdgeInsets.all(8),
               child: CircularProgressIndicator(),
             ),
 
-          //  INPUT BAR WITH MIC
+          // ======================================================
+          // INPUT BAR
+          // ======================================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: const BoxDecoration(
               color: Colors.white,
-              boxShadow: [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
             ),
             child: Row(
               children: [
@@ -248,8 +330,8 @@ void _loadMessages() {
                     ),
                     child: TextField(
                       controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: "Ask something...",
+                      decoration: InputDecoration(
+                        hintText: l10n.askSomething,
                         border: InputBorder.none,
                       ),
                     ),
@@ -258,10 +340,9 @@ void _loadMessages() {
 
                 const SizedBox(width: 8),
 
-                // 🎤 MIC
+                // MIC
                 GestureDetector(
-                  onTap:
-                      _isListening ? _stopListening : _startListening,
+                  onTap: _isListening ? _stopListening : _startListening,
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -277,9 +358,12 @@ void _loadMessages() {
 
                 const SizedBox(width: 8),
 
-                //  SEND
+                // SEND
                 GestureDetector(
-                  onTap: loading ? null : handleSend,
+                  onTap: () {
+                    debugPrint("🔥🔥🔥 SEND BUTTON PRESSED 🔥🔥🔥");
+                    handleSend();
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(
@@ -291,7 +375,7 @@ void _loadMessages() {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

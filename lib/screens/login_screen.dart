@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../services/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../widgets/bottom_nav.dart';
 import 'signup_screen.dart';
@@ -11,13 +13,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
   bool loading = false;
 
-  // LOGIN FUNCTION
   Future<void> login() async {
     setState(() => loading = true);
 
@@ -26,18 +26,16 @@ class _LoginScreenState extends State<LoginScreen> {
       password: passwordController.text.trim(),
     );
 
-    
+    if (!mounted) return;
 
     setState(() => loading = false);
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-
-    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
@@ -45,11 +43,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  
-  
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Padding(
@@ -57,8 +54,14 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
-            const Icon(Icons.shield, size: 80, color: Colors.red),
+            ClipOval(
+            child: Image.asset(
+                'assets/aapdasetu_logo.png',
+                 width: 130,
+                 height: 130,
+                 fit: BoxFit.cover,
+                ),
+              ),
 
             const SizedBox(height: 20),
 
@@ -69,54 +72,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 30),
 
-            //  EMAIL
             TextField(
               controller: emailController,
-              decoration: const InputDecoration(hintText: "Email"),
+              decoration: InputDecoration(hintText: l10n.email),
             ),
 
             const SizedBox(height: 10),
 
-            //  PASSWORD
             TextField(
               controller: passwordController,
               obscureText: true,
-              decoration: const InputDecoration(hintText: "Password"),
+              decoration: InputDecoration(hintText: l10n.password),
             ),
 
             const SizedBox(height: 20),
 
-            //  LOGIN BUTTON
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: loading ? null : login,
                 child: loading
                     ? const CircularProgressIndicator()
-                    : const Text("LOGIN"),
+                    : Text(l10n.login),
               ),
             ),
 
             const SizedBox(height: 10),
 
-            //  RESEND EMAIL
-            
-
-            //  CHECK STATUS
-            
-            const SizedBox(height: 10),
-
-TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SignupScreen(),
-      ),
-    );
-  },
-  child: const Text("Create new account"),
-),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SignupScreen()),
+                );
+              },
+              child: Text(l10n.createNewAccount),
+            ),
           ],
         ),
       ),

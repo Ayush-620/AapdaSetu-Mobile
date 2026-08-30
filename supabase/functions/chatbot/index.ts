@@ -1,133 +1,376 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// 🌍 Distance function (Haversine)
-function distance(lat1: number, lon1: number, lat2: number, lon2: number) {
+function distance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) {
   const R = 6371;
+
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
 
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
 
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * 2 * Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1 - a),
+  );
 }
 
 serve(async (req) => {
+  // ============================================================
+  // CORS
+  // ============================================================
 
-  // ✅ CORS
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
   }
 
   try {
-    const { message, history, lat, lng } = await req.json();
+    // ==========================================================
+    // REQUEST DATA
+    // ==========================================================
+
+    const {
+      message,
+      history,
+      lat,
+      lng,
+      language = "en",
+    } = await req.json();
+
+    console.log("CHAT REQUEST:", {
+      language,
+      lat,
+      lng,
+    });
+
+    // ==========================================================
+    // SUPABASE CLIENT
+    // ==========================================================
+
+    const projectUrl = Deno.env.get("PROJECT_URL");
+    const serviceRoleKey =
+      Deno.env.get("SERVICE_ROLE_KEY");
+
+    if (!projectUrl || !serviceRoleKey) {
+      console.error(
+        "Missing Supabase environment variables",
+      );
+
+      return new Response(
+        JSON.stringify({
+          reply:
+            "Server configuration error. Please try again later.",
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     const supabase = createClient(
-      Deno.env.get("PROJECT_URL")!,
-      Deno.env.get("SERVICE_ROLE_KEY")!
+      projectUrl,
+      serviceRoleKey,
     );
 
-    // 🔥 Fetch reports
-    const { data: allReports } = await supabase
-      .from("reports")
-      .select("*")
-      .limit(50);
+    // ==========================================================
+    // FETCH REPORTS
+    // ==========================================================
+
+    const { data: allReports, error: reportsError } =
+      await supabase
+        .from("reports")
+        .select("*")
+        .limit(50);
+
+    if (reportsError) {
+      console.error(
+        "REPORT FETCH ERROR:",
+        reportsError,
+      );
+    }
 
     const RADIUS_KM = 50;
 
-    // 🔥 Filter nearby reports
+    // ==========================================================
+    // FILTER NEARBY REPORTS
+    // ==========================================================
+
     let nearbyReports: any[] = [];
 
-    if (lat && lng) {
-      nearbyReports = (allReports || []).filter((r) => {
-        if (!r.lat || !r.lng) return false;
-        return distance(lat, lng, r.lat, r.lng) <= RADIUS_KM;
-      });
+    if (lat != null && lng != null) {
+      nearbyReports = (allReports || []).filter(
+        (r) => {
+          if (
+            r.lat == null ||
+            r.lng == null
+          ) {
+            return false;
+          }
+
+          return (
+            distance(
+              Number(lat),
+              Number(lng),
+              Number(r.lat),
+              Number(r.lng),
+            ) <= RADIUS_KM
+          );
+        },
+      );
     } else {
       nearbyReports = allReports || [];
     }
 
-    // 🧠 Smart prompt
+    // ==========================================================
+    // LANGUAGE
+    // ==========================================================
+
+    const languageInstruction =
+      language === "hi"
+        ? `
+Respond entirely in Hindi (हिन्दी).
+Use simple, clear Hindi that is easy for a general user
+to understand.
+Do not answer in English unless a technical term has
+no suitable Hindi equivalent.
+`
+        : `
+Respond entirely in English.
+Use simple, clear English that is easy for a general user
+to understand.
+`;
+
+    // ==========================================================
+    // PROMPT
+    // ==========================================================
+
     const prompt = `
-You are a disaster response AI assistant.
+You are the AapdaSetu AI Disaster Assistant.
+
+${languageInstruction}
+
+Your purpose is to help users with disaster safety,
+emergency situations, nearby incidents and practical
+safety guidance.
 
 User location:
-Lat: ${lat ?? "unknown"}, Lng: ${lng ?? "unknown"}
+Latitude: ${lat ?? "unknown"}
+Longitude: ${lng ?? "unknown"}
 
-Nearby incidents (within ${RADIUS_KM} km):
+Nearby incidents within ${RADIUS_KM} km:
 ${JSON.stringify(nearbyReports)}
 
 Conversation history:
-${JSON.stringify(history)}
+${JSON.stringify(history || [])}
 
 User message:
 ${message}
 
 Instructions:
-- Focus on nearby dangers
-- Mention distance if possible
-- Give clear and practical safety steps
-- Keep response short and actionable
+- Answer the user's current question directly.
+- Focus on safety and practical actions.
+- Use nearby incidents when relevant.
+- Mention distance when useful.
+- Do not unnecessarily repeat the conversation history.
+- Keep responses short and actionable.
+- If the situation appears dangerous, prioritize immediate
+  safety instructions.
+- Always respond in the requested language.
 `;
+
+    console.log(
+      "REQUESTED LANGUAGE:",
+      language,
+    );
+
+    // ==========================================================
+    // GEMINI KEY
+    // ==========================================================
 
     const key = Deno.env.get("GEMINI_KEY_1");
 
-    let reply = "AI unavailable";
-
-    try {
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-          }),
-        }
+    if (!key) {
+      console.error(
+        "GEMINI_KEY_1 is missing",
       );
 
-      const json = await res.json();
-
-      console.log("GEMINI RESPONSE:", json);
-
-      if (json.candidates && json.candidates.length > 0) {
-        reply = json.candidates[0].content.parts[0].text;
-      } else if (json.error) {
-        reply = "Gemini Error: " + json.error.message;
-      }
-
-    } catch (e) {
-      console.log("FETCH ERROR:", e);
-      reply = "Network error contacting AI";
+      return new Response(
+        JSON.stringify({
+          reply:
+            language === "hi"
+              ? "AI सेवा अभी उपलब्ध नहीं है। कृपया बाद में प्रयास करें।"
+              : "AI service is currently unavailable. Please try again later.",
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
     }
 
-    return new Response(JSON.stringify({ reply }), {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    });
+    // ==========================================================
+    // GEMINI REQUEST
+    // ==========================================================
 
+    const geminiUrl =
+      "https://generativelanguage.googleapis.com/" +
+      "v1beta/models/gemini-2.5-flash:generateContent?key=" +
+      key;
+
+    const geminiResponse = await fetch(
+      geminiUrl,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+        }),
+      },
+    );
+
+    const json = await geminiResponse.json();
+
+    console.log(
+      "GEMINI STATUS:",
+      geminiResponse.status,
+    );
+
+    console.log(
+      "GEMINI RESPONSE:",
+      JSON.stringify(json),
+    );
+
+    // ==========================================================
+    // GEMINI ERROR
+    // ==========================================================
+
+    if (!geminiResponse.ok) {
+      const errorMessage =
+        json?.error?.message ||
+        "Unknown Gemini error";
+
+      console.error(
+        "GEMINI ERROR:",
+        errorMessage,
+      );
+
+      return new Response(
+        JSON.stringify({
+          reply:
+            language === "hi"
+              ? "AI से जवाब प्राप्त नहीं हो सका। कृपया फिर से प्रयास करें।"
+              : "Could not get a response from AI. Please try again.",
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    // ==========================================================
+    // EXTRACT RESPONSE
+    // ==========================================================
+
+    const reply =
+      json?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!reply) {
+      console.error(
+        "NO GEMINI RESPONSE TEXT",
+      );
+
+      return new Response(
+        JSON.stringify({
+          reply:
+            language === "hi"
+              ? "AI से कोई जवाब नहीं मिला। कृपया फिर से प्रयास करें।"
+              : "No response received from AI. Please try again.",
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    // ==========================================================
+    // SUCCESS
+    // ==========================================================
+
+    return new Response(
+      JSON.stringify({
+        reply,
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      },
+    );
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.toString() }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    console.error(
+      "CHATBOT FUNCTION ERROR:",
+      e,
+    );
+
+    return new Response(
+      JSON.stringify({
+        reply:
+          "Unable to process your request. Please try again.",
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      },
+    );
   }
 });

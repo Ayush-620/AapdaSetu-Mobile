@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+
+import '../services/app_localizations.dart';
 import '../services/supabase_client.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -10,22 +12,22 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-
   final AudioPlayer _player = AudioPlayer();
+
   String? _currentlyPlayingUrl;
 
-  //  FETCH REPORTS + USER INFO
- Future<List<dynamic>> getReports() async {
-  final user = supabase.auth.currentUser;
+  // FETCH REPORTS + USER INFO
+  Future<List<dynamic>> getReports() async {
+    final user = supabase.auth.currentUser;
 
-  if (user == null) return [];
+    if (user == null) return [];
 
-  return await supabase
-      .from('citizen_reports')
-      .select()
-      .eq('created_by', user.id) 
-      .order('created_at', ascending: false);
-}
+    return await supabase
+        .from('citizen_reports')
+        .select()
+        .eq('created_by', user.id)
+        .order('created_at', ascending: false);
+  }
 
   // FETCH USER NAME FROM citizen_id
   Future<Map<int, Map<String, dynamic>>> getUsersMap() async {
@@ -41,6 +43,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _playAudio(String url) async {
+    final l10n = AppLocalizations.of(context);
+
     try {
       if (_currentlyPlayingUrl == url && _player.playing) {
         await _player.pause();
@@ -54,9 +58,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       setState(() {});
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Audio error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("${l10n.audioError}: $e")));
     }
   }
 
@@ -68,12 +72,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Reports")),
+      appBar: AppBar(title: Text(l10n.reports)),
       body: FutureBuilder(
         future: Future.wait([getReports(), getUsersMap()]),
         builder: (context, snapshot) {
-
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -82,7 +87,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final usersMap = snapshot.data![1] as Map<int, Map<String, dynamic>>;
 
           if (reports.isEmpty) {
-            return const Center(child: Text("No reports yet"));
+            return Center(child: Text(l10n.noReportsYet));
           }
 
           return ListView.builder(
@@ -103,7 +108,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
                       // TITLE
                       Text(
                         r['category'] ?? '',
@@ -118,8 +122,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       // WHO THIS REPORT IS FOR
                       Text(
                         user != null
-                            ? "For: ${user['name'] ?? user['email']}"
-                            : "For: Unknown",
+                            ? "${l10n.forLabel} "
+                                  "${user['name'] ?? user['email']}"
+                            : "${l10n.forLabel} ${l10n.unknown}",
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -128,20 +133,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                       const SizedBox(height: 6),
 
-                      //  DESCRIPTION
+                      // DESCRIPTION
                       Text(r['details'] ?? ''),
 
                       const SizedBox(height: 10),
 
-                      //  IMAGE
+                      // IMAGE
                       if (r['image_url'] != null)
                         GestureDetector(
                           onTap: () {
                             showDialog(
                               context: context,
-                              builder: (_) => Dialog(
-                                child: Image.network(r['image_url']),
-                              ),
+                              builder: (_) =>
+                                  Dialog(child: Image.network(r['image_url'])),
                             );
                           },
                           child: ClipRRect(
@@ -152,23 +156,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                       const SizedBox(height: 10),
 
-                      //  AUDIO
+                      // AUDIO
                       if (r['audio_url'] != null)
                         ElevatedButton.icon(
                           icon: Icon(
                             isPlaying ? Icons.pause : Icons.play_arrow,
                           ),
                           label: Text(
-                            isPlaying ? "Pause Audio" : "Play Audio",
+                            isPlaying ? l10n.pauseAudio : l10n.playAudio,
                           ),
                           onPressed: () => _playAudio(r['audio_url']),
                         ),
 
                       const SizedBox(height: 10),
 
-                      //  STATUS
+                      // STATUS
                       Text(
-                        "Status: ${r['status']}",
+                        "${l10n.status}: ${r['status']}",
                         style: TextStyle(
                           color: r['status'] == 'Open'
                               ? Colors.red

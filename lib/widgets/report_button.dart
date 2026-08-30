@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../services/image_compressor.dart';
 import '../services/supabase_client.dart';
 import '../services/location_service.dart';
 import '../services/auth_service.dart';
+import '../services/language_scope.dart';
+import '../services/app_localizations.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
@@ -19,6 +22,8 @@ class ReportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       width: double.infinity,
@@ -28,13 +33,15 @@ class ReportButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.amber,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-        child: const Text(
-          "REPORT INCIDENT",
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.black),
+        child: Text(
+          l10n.reportIncident.toUpperCase(),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
       ),
     );
@@ -121,7 +128,10 @@ class _ReportSheetState extends State<_ReportSheet> {
     setState(() => _linkedUsers = users);
   }
 
+  // ============================================================
   // VOICE TO TEXT
+  // ============================================================
+
   Future<void> _toggleMic() async {
     await requestPermissions();
 
@@ -146,25 +156,30 @@ class _ReportSheetState extends State<_ReportSheet> {
     }
   }
 
-  //  IMAGE
+  // ============================================================
+  // IMAGE
+  // ============================================================
+
   Future<void> _pickImage() async {
     await requestPermissions();
 
-    final img = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-    );
+    final img = await ImagePicker().pickImage(source: ImageSource.camera);
 
     if (img != null) {
       setState(() => _imagePath = img.path);
     }
   }
 
-  //  AUDIO
+  // ============================================================
+  // AUDIO
+  // ============================================================
+
   Future<void> _recordAudio() async {
     await requestPermissions();
 
     if (!_isRecording) {
       final dir = await getTemporaryDirectory();
+
       final path =
           "${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a";
 
@@ -190,11 +205,15 @@ class _ReportSheetState extends State<_ReportSheet> {
 
   Future<void> _playAudio() async {
     if (_audioPath == null) return;
+
     await _player.setFilePath(_audioPath!);
     _player.play();
   }
 
-  //  SUBMIT
+  // ============================================================
+  // SUBMIT
+  // ============================================================
+
   Future<void> _submit() async {
     if (_descController.text.isEmpty) return;
 
@@ -212,37 +231,54 @@ class _ReportSheetState extends State<_ReportSheet> {
           .eq('id', user!.id)
           .single();
 
-      int targetCitizenId =
-          selectedCitizenId == -1 ? profile['citizen_id'] : selectedCitizenId;
+      final int targetCitizenId = selectedCitizenId == -1
+          ? profile['citizen_id']
+          : selectedCitizenId;
 
       String? imageUrl;
       String? audioUrl;
 
+      // ========================================================
+      // COMPRESS IMAGE BEFORE UPLOAD
+      // ========================================================
+
       if (_imagePath != null) {
-        final file = File(_imagePath!);
+        final originalFile = File(_imagePath!);
+
+        final compressedFile = await ImageCompressor.compress(
+          file: originalFile,
+        );
+
         final name = DateTime.now().millisecondsSinceEpoch.toString();
 
         await supabase.storage
             .from('reports')
-            .upload('images/$name.jpg', file);
+            .upload('images/$name.jpg', compressedFile);
 
         imageUrl = supabase.storage
             .from('reports')
             .getPublicUrl('images/$name.jpg');
       }
 
+      // ========================================================
+      // AUDIO UPLOAD
+      // ========================================================
+
       if (_audioPath != null) {
         final file = File(_audioPath!);
+
         final name = DateTime.now().millisecondsSinceEpoch.toString();
 
-        await supabase.storage
-            .from('reports')
-            .upload('audio/$name.m4a', file);
+        await supabase.storage.from('reports').upload('audio/$name.m4a', file);
 
         audioUrl = supabase.storage
             .from('reports')
             .getPublicUrl('audio/$name.m4a');
       }
+
+      // ========================================================
+      // INSERT REPORT
+      // ========================================================
 
       await supabase.from('citizen_reports').insert({
         'category': _type,
@@ -256,18 +292,26 @@ class _ReportSheetState extends State<_ReportSheet> {
         'longitude': lng,
       });
 
-      Navigator.pop(context);
-
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
-      print("ERROR: $e");
+      debugPrint("ERROR: $e");
     }
 
-    setState(() => _isSubmitting = false);
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+    }
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final l10n = AppLocalizations.of(context);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, bottom + 16),
@@ -276,9 +320,10 @@ class _ReportSheetState extends State<_ReportSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-
-            const Text("Report Incident",
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              l10n.reportIncident,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
 
             const SizedBox(height: 10),
 
@@ -298,7 +343,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               minLines: 3,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: "Describe incident",
+                hintText: l10n.describeIncident,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -311,13 +356,11 @@ class _ReportSheetState extends State<_ReportSheet> {
 
             if (_linkedUsers.isNotEmpty) ...[
               const SizedBox(height: 12),
+
               DropdownButtonFormField<int>(
                 value: selectedCitizenId,
                 items: [
-                  const DropdownMenuItem(
-                    value: -1,
-                    child: Text("Myself"),
-                  ),
+                  DropdownMenuItem(value: -1, child: Text(l10n.myself)),
                   ..._linkedUsers.map((u) {
                     return DropdownMenuItem(
                       value: u['citizen_id'],
@@ -332,7 +375,7 @@ class _ReportSheetState extends State<_ReportSheet> {
             ],
 
             if (_imagePath != null)
-              Text("Selected: ${_imagePath!.split('/').last}"),
+              Text("${l10n.selected}: ${_imagePath!.split('/').last}"),
 
             const SizedBox(height: 10),
 
@@ -341,33 +384,35 @@ class _ReportSheetState extends State<_ReportSheet> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _pickImage,
-                    child: const Text("Photo"),
+                    child: Text(l10n.photo),
                   ),
                 ),
+
                 const SizedBox(width: 10),
+
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _recordAudio,
-                    child: Text(_isRecording ? "Stop" : "Record"),
+                    child: Text(_isRecording ? l10n.stop : l10n.record),
                   ),
                 ),
               ],
             ),
 
             if (_isRecording)
-              Text("Recording: $_recordSeconds sec"),
+              Text("${l10n.recording}: $_recordSeconds ${l10n.seconds}"),
 
             if (_audioPath != null && !_isRecording)
               ElevatedButton(
                 onPressed: _playAudio,
-                child: const Text("Play Audio"),
+                child: Text(l10n.playAudio),
               ),
 
             const SizedBox(height: 16),
 
             ElevatedButton(
-              onPressed: _submit,
-              child: const Text("Submit"),
+              onPressed: _isSubmitting ? null : _submit,
+              child: Text(l10n.submit),
             ),
           ],
         ),
@@ -375,8 +420,29 @@ class _ReportSheetState extends State<_ReportSheet> {
     );
   }
 
+  // ============================================================
+  // INCIDENT TYPE BUTTON
+  // ============================================================
+
   Widget _typeBtn(String type) {
     final selected = _type == type;
+    final l10n = AppLocalizations.of(context);
+
+    String translatedType;
+
+    switch (type) {
+      case "Medical":
+        translatedType = l10n.medical;
+        break;
+      case "Fire":
+        translatedType = l10n.fire;
+        break;
+      case "Flood":
+        translatedType = l10n.flood;
+        break;
+      default:
+        translatedType = l10n.others;
+    }
 
     return Expanded(
       child: GestureDetector(
@@ -388,7 +454,7 @@ class _ReportSheetState extends State<_ReportSheet> {
             color: selected ? Colors.amber : Colors.grey[200],
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Center(child: Text(type)),
+          child: Center(child: Text(translatedType)),
         ),
       ),
     );

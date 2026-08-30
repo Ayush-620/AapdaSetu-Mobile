@@ -22,7 +22,7 @@
 
 
     <application
-        android:label="aapdasetu_v2"
+        android:label="AapdaSetu"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

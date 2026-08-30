@@ -5,7 +5,23 @@ class ChatStorageService {
 
   static List<Map<String, dynamic>> getMessages(String userId) {
     final data = _box.get('chat_$userId', defaultValue: []);
-    return List<Map<String, dynamic>>.from(data);
+
+    if (data is! List) {
+      return [];
+    }
+
+    return data
+        .map<Map<String, dynamic>>((message) {
+          if (message is Map) {
+            return Map<String, dynamic>.from(
+              message.map((key, value) => MapEntry(key.toString(), value)),
+            );
+          }
+
+          return <String, dynamic>{};
+        })
+        .where((message) => message.isNotEmpty)
+        .toList();
   }
 
   static Future<void> saveMessage({

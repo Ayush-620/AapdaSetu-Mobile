@@ -68,3 +68,7 @@ android/.gradle/
 
 # Windows
 Thumbs.db
+# Node dependencies
+node_modules/
+
+# Supabase CLI local statesupabase/.temp/

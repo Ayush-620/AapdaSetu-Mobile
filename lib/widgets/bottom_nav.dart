@@ -14,19 +14,16 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int currentIndex = 0;
 
-  final List<Widget> screens = const [
-    HomeScreen(),
-    ChatScreen(),
-    ProfileScreen(),
+  final List<Widget> screens = [
+    const HomeScreen(),
+    const ChatScreen(),
+    const ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
-      ),
+      body: IndexedStack(index: currentIndex, children: screens),
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
@@ -43,20 +40,11 @@ class _MainNavigationState extends State<MainNavigation> {
         unselectedItemColor: Colors.grey,
 
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Home",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
 
-          BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy),
-            label: "AI",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
 
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );

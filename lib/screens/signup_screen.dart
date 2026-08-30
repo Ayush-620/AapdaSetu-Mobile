@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../services/app_localizations.dart';
 import '../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -13,10 +15,31 @@ class _SignupScreenState extends State<SignupScreen> {
   final passwordController = TextEditingController();
   final nameController = TextEditingController();
   final ageController = TextEditingController();
+  final phoneController = TextEditingController();
 
   bool loading = false;
 
   Future<void> signup() async {
+    // ============================================================
+    // PHONE NUMBER VALIDATION
+    // ============================================================
+    final phone = phoneController.text.trim();
+
+    if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+      final l10n = AppLocalizations.of(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.invalidPhoneNumber),
+        ),
+      );
+
+      return;
+    }
+
+    // ============================================================
+    // SIGNUP
+    // ============================================================
     setState(() => loading = true);
 
     final error = await AuthService.register(
@@ -24,97 +47,208 @@ class _SignupScreenState extends State<SignupScreen> {
       password: passwordController.text.trim(),
       name: nameController.text.trim(),
       age: ageController.text.trim(),
+      phone: phone,
     );
+
+    if (!mounted) return;
 
     setState(() => loading = false);
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+        SnackBar(
+          content: Text(error),
+        ),
       );
       return;
     }
 
-    //  SUCCESS → SHOW MESSAGE ONLY
+    final l10n = AppLocalizations.of(context);
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Signup successful! Check your email to verify.",
-        ),
+      SnackBar(
+        content: Text(l10n.signupSuccessful),
       ),
     );
 
-    Navigator.pop(context); // go back to login
+    Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    nameController.dispose();
+    ageController.dispose();
+    phoneController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
 
-            const Icon(Icons.person_add, size: 80, color: Colors.blue),
+      // Prevents keyboard from causing bottom overflow.
+      resizeToAvoidBottomInset: true,
 
-            const SizedBox(height: 20),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
 
-            const Text(
-              "Create Account",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            20 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  40,
             ),
 
-            const SizedBox(height: 30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ========================================================
+                // ICON
+                // ========================================================
+                const Icon(
+                  Icons.person_add,
+                  size: 80,
+                  color: Colors.blue,
+                ),
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(hintText: "Full Name"),
+                const SizedBox(height: 20),
+
+                // ========================================================
+                // TITLE
+                // ========================================================
+                Text(
+                  l10n.createAccount,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // ========================================================
+                // NAME
+                // ========================================================
+                TextField(
+                  controller: nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    hintText: l10n.fullName,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ========================================================
+                // AGE
+                // ========================================================
+                TextField(
+                  controller: ageController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    hintText: l10n.age,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ========================================================
+                // PHONE NUMBER
+                // ========================================================
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+
+                  // Maximum 10 characters from the UI.
+                  maxLength: 10,
+
+                  decoration: InputDecoration(
+                    hintText: l10n.phoneNumber,
+
+                    // Hide "0/10" counter.
+                    counterText: '',
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ========================================================
+                // EMAIL
+                // ========================================================
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    hintText: l10n.email,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ========================================================
+                // PASSWORD
+                // ========================================================
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: l10n.password,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // ========================================================
+                // SIGN UP BUTTON
+                // ========================================================
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: loading ? null : signup,
+                    child: loading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(l10n.signUp),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ========================================================
+                // LOGIN
+                // ========================================================
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.alreadyHaveAccount),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: ageController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: "Age"),
-            ),
-
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(hintText: "Email"),
-            ),
-
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(hintText: "Password"),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: loading ? null : signup,
-                child: loading
-                    ? const CircularProgressIndicator()
-                    : const Text("SIGN UP"),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Already have an account? Login"),
-            ),
-          ],
+          ),
         ),
       ),
     );

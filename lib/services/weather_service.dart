@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class WeatherService {
-
   // 🌤 WEATHER (same as your existing)
   static Future<Map<String, dynamic>?> getWeather(
-      double lat, double lng) async {
+    double lat,
+    double lng,
+  ) async {
     try {
       final url =
           "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lng&current_weather=true";
